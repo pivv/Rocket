@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "level_set_algorithm", "level_set_algorithm\level_set_algorithm.vcxproj", "{2FCC75BF-026A-4955-9D50-E55E0D171E87}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2FCC75BF-026A-4955-9D50-E55E0D171E87}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2FCC75BF-026A-4955-9D50-E55E0D171E87}.Debug|Win32.Build.0 = Debug|Win32
+		{2FCC75BF-026A-4955-9D50-E55E0D171E87}.Release|Win32.ActiveCfg = Release|Win32
+		{2FCC75BF-026A-4955-9D50-E55E0D171E87}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
