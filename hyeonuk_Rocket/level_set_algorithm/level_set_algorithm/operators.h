@@ -168,7 +168,7 @@ inline double quadtree_dyminusphi(struct pointphi_2d *point, double si)
 
 
 
-inline double octree_dxphi(struct pointphi_3d *point)
+inline double quadtree_dx(struct pointphi_2d *point)
 {
 	if(point==NULL) return 0;
 	if(point->left==NULL || point->right==NULL) return 0;
@@ -179,7 +179,7 @@ inline double octree_dxphi(struct pointphi_3d *point)
 		(point->phi - point->left->phi)/lefts * rights/(lefts + rights);
 }
 
-inline double octree_dxxphi(struct pointphi_3d *point)
+inline double quadtree_dxx(struct pointphi_2d *point)
 {
 	if(point==NULL) return 0;
 	if(point->left==NULL || point->right==NULL) return 0;
@@ -190,18 +190,38 @@ inline double octree_dxxphi(struct pointphi_3d *point)
 		(point->phi - point->left->phi)/lefts * 2./(lefts + rights);
 }
 
-inline double octree_dyphi(struct pointphi_3d *point)
+inline double quadtree_dxplus(struct pointphi_2d *point)
+{
+	if(point==NULL) return 0;
+	if(point->right==NULL) return 0;
+
+	double rights = point->right->x - point->x;
+	return (point->right->phi - point->phi)/rights
+		- rights/2. * minmod(quadtree_dxx(point), quadtree_dxx(point->right));
+}
+
+inline double quadtree_dxminus(struct pointphi_2d *point)
+{
+	if(point==NULL) return 0;
+	if(point->left==NULL) return 0;
+
+	double lefts = point->x - point->left->x;
+	return (point->phi - point->left->phi)/lefts
+		+ lefts/2. * minmod(quadtree_dxx(point), quadtree_dxx(point->left));
+}
+
+inline double quadtree_dy(struct pointphi_2d *point)
 {
 	if(point==NULL) return 0;
 	if(point->bottom==NULL || point->top==NULL) return 0;
 
-	double bottoms = point->x - point->bottom->x;
-	double tops = point->top->x - point->x;
-	return (point->top->phi - point->phi)/tops * bottoms/(bottoms + tops) -
+	double bottoms = point->y - point->bottom->y;
+	double tops = point->top->y - point->y;
+	return (point->top->phi - point->phi)/tops * bottoms/(bottoms + tops) +
 		(point->phi - point->bottom->phi)/bottoms * tops/(bottoms + tops);
 }
 
-inline double octree_dyyphi(struct pointphi_3d *point)
+inline double quadtree_dyy(struct pointphi_2d *point)
 {
 	if(point==NULL) return 0;
 	if(point->bottom==NULL || point->top==NULL) return 0;
@@ -212,18 +232,206 @@ inline double octree_dyyphi(struct pointphi_3d *point)
 		(point->phi - point->bottom->phi)/bottoms * 2./(bottoms + tops);
 }
 
-inline double octree_dzphi(struct pointphi_3d *point)
+inline double quadtree_dyplus(struct pointphi_2d *point)
+{
+	if(point==NULL) return 0;
+	if(point->top==NULL) return 0;
+
+	double tops = point->top->y - point->y;
+	return (point->top->phi - point->phi)/tops
+		- tops/2. * minmod(quadtree_dyy(point), quadtree_dyy(point->top));
+}
+
+inline double quadtree_dyminus(struct pointphi_2d *point)
+{
+	if(point==NULL) return 0;
+	if(point->bottom==NULL) return 0;
+	
+	double bottoms = point->y - point->bottom->y;
+	return (point->phi - point->bottom->phi)/bottoms
+		+ bottoms/2. * minmod(quadtree_dyy(point), quadtree_dyy(point->bottom));
+}
+
+
+
+
+double quadtree_weno(struct pointphi_2d *point, int i, double delta)
+{
+	// dxplus dxminus dyplus dyminus dzplus dzminus : 0 1 2 3 4 5
+	double v1; double v2; double v3; double v4; double v5;
+	if(i==0)
+	{
+		if(point->right == NULL || abs(point->right->x - point->x - delta) > MINERROR || point->right->right == NULL ||
+			abs(point->right->right->x - point->right->x - delta) > MINERROR || point->right->right->right == NULL ||
+			abs(point->right->right->right->x - point->right->right->x - delta) > MINERROR ||
+			point->left == NULL || abs(point->x - point->left->x - delta) > MINERROR || point->left->left == NULL ||
+			abs(point->left->x - point->left->left->x - delta) > MINERROR) return quadtree_dxplus(point);
+
+		v1 = (point->right->right->right->phi - point->right->right->phi)/delta;
+		v2 = (point->right->right->phi - point->right->phi)/delta;
+		v3 = (point->right->phi - point->phi)/delta;
+		v4 = (point->phi - point->left->phi)/delta;
+		v5 = (point->left->phi - point->left->left->phi)/delta;
+	}
+	else if(i==1)
+	{
+		if(point->left == NULL || abs(point->x - point->left->x - delta) > MINERROR || point->left->left == NULL ||
+			abs(point->left->x - point->left->left->x - delta) > MINERROR || point->left->left->left == NULL ||
+			abs(point->left->left->x - point->left->left->left->x - delta) > MINERROR ||
+			point->right == NULL || abs(point->right->x - point->x - delta) > MINERROR || point->right->right == NULL ||
+			abs(point->right->right->x - point->right->x - delta) > MINERROR) return quadtree_dxminus(point);
+
+		v1 = (point->left->left->phi - point->left->left->left->phi)/delta;
+		v2 = (point->left->phi - point->left->left->phi)/delta;
+		v3 = (point->phi - point->left->phi)/delta;
+		v4 = (point->right->phi - point->phi)/delta;
+		v5 = (point->right->right->phi - point->right->phi)/delta;
+	}
+	else if(i==2)
+	{
+		if(point->top == NULL || abs(point->top->y - point->y - delta) > MINERROR || point->top->top == NULL ||
+			abs(point->top->top->y - point->top->y - delta) > MINERROR || point->top->top->top == NULL ||
+			abs(point->top->top->top->y - point->top->top->y - delta) > MINERROR ||
+			point->bottom == NULL || abs(point->y - point->bottom->y - delta) > MINERROR || point->bottom->bottom == NULL ||
+			abs(point->bottom->y - point->bottom->bottom->y - delta) > MINERROR) return quadtree_dyplus(point);
+
+		v1 = (point->top->top->top->phi - point->top->top->phi)/delta;
+		v2 = (point->top->top->phi - point->top->phi)/delta;
+		v3 = (point->top->phi - point->phi)/delta;
+		v4 = (point->phi - point->bottom->phi)/delta;
+		v5 = (point->bottom->phi - point->bottom->bottom->phi)/delta;
+	}
+	else if(i==3)
+	{
+		if(point->bottom == NULL || abs(point->y - point->bottom->y - delta) > MINERROR || point->bottom->bottom == NULL ||
+			abs(point->bottom->y - point->bottom->bottom->y - delta) > MINERROR || point->bottom->bottom->bottom == NULL ||
+			abs(point->bottom->bottom->y - point->bottom->bottom->bottom->y - delta) > MINERROR ||
+			point->top == NULL || abs(point->top->y - point->y - delta) > MINERROR || point->top->top == NULL ||
+			abs(point->top->top->y - point->top->y - delta) > MINERROR) return quadtree_dyminus(point);
+
+		v1 = (point->bottom->bottom->phi - point->bottom->bottom->bottom->phi)/delta;
+		v2 = (point->bottom->phi - point->bottom->bottom->phi)/delta;
+		v3 = (point->phi - point->bottom->phi)/delta;
+		v4 = (point->top->phi - point->phi)/delta;
+		v5 = (point->top->top->phi - point->top->phi)/delta;
+	}
+
+	double s1 = 13./12. * (v1-2.*v2+v3)*(v1-2.*v2+v3) + 1./4. * (v1-4.*v2+3.*v3)*(v1-4.*v2+3.*v3);
+	double s2 = 13./12. * (v2-2.*v3+v4)*(v2-2.*v3+v4) + 1./4. * (v2-v4)*(v2-v4);
+	double s3 = 13./12. * (v3-2.*v4+v5)*(v3-2.*v4+v5) + 1./4. * (3.*v3-4.*v4+v5)*(3.*v3-4.*v4+v5);
+
+	double eps = 1e-6;
+	
+	double a1 = 1./10. * 1./((eps+s1)*(eps+s1));
+	double a2 = 6./10. * 1./((eps+s2)*(eps+s2));
+	double a3 = 3./10. * 1./((eps+s3)*(eps+s3));
+
+	double w1 = a1/(a1+a2+a3);
+	double w2 = a2/(a1+a2+a3);
+	double w3 = a3/(a1+a2+a3);
+
+	return w1*(v1/3.-7.*v2/6.+11.*v3/6.) + w2*(-v2/6.+5.*v3/6.+v4/3.) + w3*(v3/3.+5.*v4/6.-v5/6.);
+}
+
+
+
+
+inline double octree_dx(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->left==NULL || point->right==NULL) return 0;
+
+	double lefts = point->x - point->left->x;
+	double rights = point->right->x - point->x;
+	return (point->right->phi - point->phi)/rights * lefts/(lefts + rights) +
+		(point->phi - point->left->phi)/lefts * rights/(lefts + rights);
+}
+
+inline double octree_dxx(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->left==NULL || point->right==NULL) return 0;
+
+	double lefts = point->x - point->left->x;
+	double rights = point->right->x - point->x;
+	return (point->right->phi - point->phi)/rights * 2./(lefts + rights) -
+		(point->phi - point->left->phi)/lefts * 2./(lefts + rights);
+}
+
+inline double octree_dxplus(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->right==NULL) return 0;
+
+	double rights = point->right->x - point->x;
+	return (point->right->phi - point->phi)/rights
+		- rights/2. * minmod(octree_dxx(point), octree_dxx(point->right));
+}
+
+inline double octree_dxminus(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->left==NULL) return 0;
+
+	double lefts = point->x - point->left->x;
+	return (point->phi - point->left->phi)/lefts
+		+ lefts/2. * minmod(octree_dxx(point), octree_dxx(point->left));
+}
+
+inline double octree_dy(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->bottom==NULL || point->top==NULL) return 0;
+
+	double bottoms = point->y - point->bottom->y;
+	double tops = point->top->y - point->y;
+	return (point->top->phi - point->phi)/tops * bottoms/(bottoms + tops) +
+		(point->phi - point->bottom->phi)/bottoms * tops/(bottoms + tops);
+}
+
+inline double octree_dyy(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->bottom==NULL || point->top==NULL) return 0;
+
+	double bottoms = point->y - point->bottom->y;
+	double tops = point->top->y - point->y;
+	return (point->top->phi - point->phi)/tops * 2./(bottoms + tops) -
+		(point->phi - point->bottom->phi)/bottoms * 2./(bottoms + tops);
+}
+
+inline double octree_dyplus(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->top==NULL) return 0;
+
+	double tops = point->top->y - point->y;
+	return (point->top->phi - point->phi)/tops
+		- tops/2. * minmod(octree_dyy(point), octree_dyy(point->top));
+}
+
+inline double octree_dyminus(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->bottom==NULL) return 0;
+	
+	double bottoms = point->y - point->bottom->y;
+	return (point->phi - point->bottom->phi)/bottoms
+		+ bottoms/2. * minmod(octree_dyy(point), octree_dyy(point->bottom));
+}
+
+inline double octree_dz(struct pointphi_3d *point)
 {
 	if(point==NULL) return 0;
 	if(point->back==NULL || point->front==NULL) return 0;
 
 	double backs = point->z - point->back->z;
 	double fronts = point->front->z - point->z;
-	return (point->front->phi - point->phi)/fronts * backs/(backs + fronts) -
+	return (point->front->phi - point->phi)/fronts * backs/(backs + fronts) +
 		(point->phi - point->back->phi)/backs * fronts/(backs + fronts);
 }
 
-inline double octree_dzzphi(struct pointphi_3d *point)
+inline double octree_dzz(struct pointphi_3d *point)
 {
 	if(point==NULL) return 0;
 	if(point->back==NULL || point->front==NULL) return 0;
@@ -232,6 +440,132 @@ inline double octree_dzzphi(struct pointphi_3d *point)
 	double fronts = point->front->z - point->z;
 	return (point->front->phi - point->phi)/fronts * 2./(backs + fronts) -
 		(point->phi - point->back->phi)/backs * 2./(backs + fronts);
+}
+
+inline double octree_dzplus(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->front==NULL) return 0;
+	
+	double fronts = point->front->z - point->z;
+	return (point->front->phi - point->phi)/fronts
+		- fronts/2. * minmod(octree_dzz(point), octree_dzz(point->front));
+}
+
+inline double octree_dzminus(struct pointphi_3d *point)
+{
+	if(point==NULL) return 0;
+	if(point->back==NULL) return 0;
+	
+	double backs = point->z - point->back->z;
+	return (point->phi - point->back->phi)/backs
+		+ backs/2. * minmod(octree_dzz(point), octree_dzz(point->back));
+}
+
+double octree_weno(struct pointphi_3d *point, int i, double delta)
+{
+	// dxplus dxminus dyplus dyminus dzplus dzminus : 0 1 2 3 4 5
+	double v1; double v2; double v3; double v4; double v5;
+	if(i==0)
+	{
+		if(point->right == NULL || abs(point->right->x - point->x - delta) > MINERROR || point->right->right == NULL ||
+			abs(point->right->right->x - point->right->x - delta) > MINERROR || point->right->right->right == NULL ||
+			abs(point->right->right->right->x - point->right->right->x - delta) > MINERROR ||
+			point->left == NULL || abs(point->x - point->left->x - delta) > MINERROR || point->left->left == NULL ||
+			abs(point->left->x - point->left->left->x - delta) > MINERROR) return octree_dxplus(point);
+
+		v1 = (point->right->right->right->phi - point->right->right->phi)/delta;
+		v2 = (point->right->right->phi - point->right->phi)/delta;
+		v3 = (point->right->phi - point->phi)/delta;
+		v4 = (point->phi - point->left->phi)/delta;
+		v5 = (point->left->phi - point->left->left->phi)/delta;
+	}
+	else if(i==1)
+	{
+		if(point->left == NULL || abs(point->x - point->left->x - delta) > MINERROR || point->left->left == NULL ||
+			abs(point->left->x - point->left->left->x - delta) > MINERROR || point->left->left->left == NULL ||
+			abs(point->left->left->x - point->left->left->left->x - delta) > MINERROR ||
+			point->right == NULL || abs(point->right->x - point->x - delta) > MINERROR || point->right->right == NULL ||
+			abs(point->right->right->x - point->right->x - delta) > MINERROR) return octree_dxminus(point);
+
+		v1 = (point->left->left->phi - point->left->left->left->phi)/delta;
+		v2 = (point->left->phi - point->left->left->phi)/delta;
+		v3 = (point->phi - point->left->phi)/delta;
+		v4 = (point->right->phi - point->phi)/delta;
+		v5 = (point->right->right->phi - point->right->phi)/delta;
+	}
+	else if(i==2)
+	{
+		if(point->top == NULL || abs(point->top->y - point->y - delta) > MINERROR || point->top->top == NULL ||
+			abs(point->top->top->y - point->top->y - delta) > MINERROR || point->top->top->top == NULL ||
+			abs(point->top->top->top->y - point->top->top->y - delta) > MINERROR ||
+			point->bottom == NULL || abs(point->y - point->bottom->y - delta) > MINERROR || point->bottom->bottom == NULL ||
+			abs(point->bottom->y - point->bottom->bottom->y - delta) > MINERROR) return octree_dyplus(point);
+
+		v1 = (point->top->top->top->phi - point->top->top->phi)/delta;
+		v2 = (point->top->top->phi - point->top->phi)/delta;
+		v3 = (point->top->phi - point->phi)/delta;
+		v4 = (point->phi - point->bottom->phi)/delta;
+		v5 = (point->bottom->phi - point->bottom->bottom->phi)/delta;
+	}
+	else if(i==3)
+	{
+		if(point->bottom == NULL || abs(point->y - point->bottom->y - delta) > MINERROR || point->bottom->bottom == NULL ||
+			abs(point->bottom->y - point->bottom->bottom->y - delta) > MINERROR || point->bottom->bottom->bottom == NULL ||
+			abs(point->bottom->bottom->y - point->bottom->bottom->bottom->y - delta) > MINERROR ||
+			point->top == NULL || abs(point->top->y - point->y - delta) > MINERROR || point->top->top == NULL ||
+			abs(point->top->top->y - point->top->y - delta) > MINERROR) return octree_dyminus(point);
+
+		v1 = (point->bottom->bottom->phi - point->bottom->bottom->bottom->phi)/delta;
+		v2 = (point->bottom->phi - point->bottom->bottom->phi)/delta;
+		v3 = (point->phi - point->bottom->phi)/delta;
+		v4 = (point->top->phi - point->phi)/delta;
+		v5 = (point->top->top->phi - point->top->phi)/delta;
+	}
+	else if(i==4)
+	{
+		if(point->front == NULL || abs(point->front->z - point->z - delta) > MINERROR || point->front->front == NULL ||
+			abs(point->front->front->z - point->front->z - delta) > MINERROR || point->front->front->front == NULL ||
+			abs(point->front->front->front->z - point->front->front->z - delta) > MINERROR ||
+			point->back == NULL || abs(point->z - point->back->z - delta) > MINERROR || point->back->back == NULL ||
+			abs(point->back->z - point->back->back->z - delta) > MINERROR) return octree_dzplus(point);
+
+		v1 = (point->front->front->front->phi - point->front->front->phi)/delta;
+		v2 = (point->front->front->phi - point->front->phi)/delta;
+		v3 = (point->front->phi - point->phi)/delta;
+		v4 = (point->phi - point->back->phi)/delta;
+		v5 = (point->back->phi - point->back->back->phi)/delta;
+	}
+	else if(i==5)
+	{
+		if(point->back == NULL || abs(point->z - point->back->z - delta) > MINERROR || point->back->back == NULL ||
+			abs(point->back->z - point->back->back->z - delta) > MINERROR || point->back->back->back == NULL ||
+			abs(point->back->back->z - point->back->back->back->z - delta) > MINERROR ||
+			point->front == NULL || abs(point->front->z - point->z - delta) > MINERROR || point->front->front == NULL ||
+			abs(point->front->front->z - point->front->z - delta) > MINERROR) return octree_dzminus(point);
+
+		v1 = (point->back->back->phi - point->back->back->back->phi)/delta;
+		v2 = (point->back->phi - point->back->back->phi)/delta;
+		v3 = (point->phi - point->back->phi)/delta;
+		v4 = (point->front->phi - point->phi)/delta;
+		v5 = (point->front->front->phi - point->front->phi)/delta;
+	}
+
+	double s1 = 13./12. * (v1-2.*v2+v3)*(v1-2.*v2+v3) + 1./4. * (v1-4.*v2+3.*v3)*(v1-4.*v2+3.*v3);
+	double s2 = 13./12. * (v2-2.*v3+v4)*(v2-2.*v3+v4) + 1./4. * (v2-v4)*(v2-v4);
+	double s3 = 13./12. * (v3-2.*v4+v5)*(v3-2.*v4+v5) + 1./4. * (3.*v3-4.*v4+v5)*(3.*v3-4.*v4+v5);
+
+	double eps = 1e-6;
+	
+	double a1 = 1./10. * 1./((eps+s1)*(eps+s1));
+	double a2 = 6./10. * 1./((eps+s2)*(eps+s2));
+	double a3 = 3./10. * 1./((eps+s3)*(eps+s3));
+
+	double w1 = a1/(a1+a2+a3);
+	double w2 = a2/(a1+a2+a3);
+	double w3 = a3/(a1+a2+a3);
+
+	return w1*(v1/3.-7.*v2/6.+11.*v3/6.) + w2*(-v2/6.+5.*v3/6.+v4/3.) + w3*(v3/3.+5.*v4/6.-v5/6.);
 }
 
 double tree_hg(struct pointphi_2d *point, bool pm, double si1, double si2, double sj1, double sj2)
@@ -257,6 +591,37 @@ double tree_hg(struct pointphi_2d *point, bool pm, double si1, double si2, doubl
 	}
 
 	return sqrt(max(pow(abs(min(a,0)),2),pow(abs(max(b,0)),2)) + max(pow(abs(min(c,0)),2),pow(abs(max(d,0)),2)));
+}
+
+double godunov(struct pointphi_3d *point, bool pm)
+{
+	double a;
+	double b;
+	double c;
+	double d;
+	double e;
+	double f;
+
+	if(pm==true)
+	{
+		a = octree_dxplus(point);
+		b = octree_dxminus(point);
+		c = octree_dyplus(point);
+		d = octree_dyminus(point);
+		e = octree_dzplus(point);
+		f = octree_dzminus(point);
+	}
+	else
+	{
+		a = octree_dxminus(point);
+		b = octree_dxplus(point);
+		c = octree_dyminus(point);
+		d = octree_dyplus(point);
+		e = octree_dzminus(point);
+		f = octree_dzplus(point);
+	}
+
+	return sqrt(max(pow(abs(min(a,0)),2),pow(abs(max(b,0)),2)) + max(pow(abs(min(c,0)),2),pow(abs(max(d,0)),2)) + max(pow(abs(min(e,0)),2),pow(abs(max(f,0)),2)));
 }
 
 

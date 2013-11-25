@@ -4,84 +4,173 @@
 #define MINERROR 1e-7
 #define MAXSAVING 1000000
 
-
-/*struct linkedlist
-{
-	int value;
-	struct linkedlist *next;
-	linkedlist(int val);
-};
-
-linkedlist::linkedlist(int val)
-{
-	value = val;
-	next = NULL;
-}
-
-struct linkedlist *addlink(struct linkedlist *start, int newval)
-{
-	struct linkedlist *newlink = new struct linkedlist(newval);
-	if(start==NULL) return newlink;
-	struct linkedlist *point = start;
-	while(point->next == NULL) point = point->next;
-	point->next = newlink;
-	return start;
-}
-
-struct linkedlist *deletelink(struct linkedlist *start, int delval)
-{
-	if(start==NULL) return NULL;
-	if(start->value==delval)
-	{
-		delete start;
-		return NULL;
-	}
-	struct linkedlist *point = start;
-	while(point->next->value == delval)
-	{
-		point = point->next;
-		if(point==NULL) return start;
-	}
-	point->next = point->next->next;
-	delete point->next;
-	return start;
-}
-
-struct linkedlist *deleteend(struct linkedlist *start)
-{
-	if(start==NULL) return NULL;
-	if(start->next == NULL)
-	{
-		delete start;
-		return NULL;
-	}
-	struct linkedlist *point = start;
-	while(point->next->next == NULL) point = point->next;
-	delete point->next;
-	point->next = NULL;	
-	return start;
-}*/
-
-
 class level_set
 {
 public:
-	level_set(int dim, int depth, double timestep, struct surface* initsurf, struct surface* bdry);
+
+	/* Basic Factors */
+
+	int dimension; // 1 or 2 or 3
+	double time_step;
+	int accuracy_order;
+	int max_tree_depth;
+
+	level_set(int dim, int depth, double timestep, struct surface* initsurf, struct surface* rcase, struct surface *propel);
 	~level_set();
 
-	void tree_propagate_surface_velocity(int num);
-	void tree_propagate_surface();
 
-	void reinitial_scheme();
-	void iter_reinitial_scheme();
+	/* Main Functions */
 
-	void iter_tree_reconstruct_surface();
+	// 0. Tree structures & Surface structures
+	
+	struct pointphi_2d *tree_point_phi_2d_start;
+	struct pointphi_2d *tree_point_phi_2d_tail;
+	struct quadtree *tree_grid_2d;
+
+	struct pointphi_3d *tree_point_phi_3d_start;
+	struct pointphi_3d *tree_point_phi_3d_tail;
+	struct octree *tree_grid_3d;
+	
+	struct pointphi_2d *tree_rcase_point_phi_2d_start;
+	struct pointphi_2d *tree_rcase_point_phi_2d_tail;
+	struct quadtree *tree_rcase_grid_2d;
+
+	struct pointphi_3d *tree_rcase_point_phi_3d_start;
+	struct pointphi_3d *tree_rcase_point_phi_3d_tail;
+	struct octree *tree_rcase_grid_3d;
+	
+	struct pointphi_2d *tree_propel_point_phi_2d_start;
+	struct pointphi_2d *tree_propel_point_phi_2d_tail;
+	struct quadtree *tree_propel_grid_2d;
+
+	struct pointphi_3d *tree_propel_point_phi_3d_start;
+	struct pointphi_3d *tree_propel_point_phi_3d_tail;
+	struct octree *tree_propel_grid_3d;
 	
 	struct surface * level_surface;
+	struct surface * rcase_surface;
+	struct surface * propel_surface;
+
+	double **fluid_surface_points;
+	int fluid_surface_points_num;
+	int **fluid_surface_edges;
+	int fluid_surface_edges_num;
+	int **fluid_surface_faces;
+	int fluid_surface_faces_num;
 	
 
+	// 1. making trees
 
-	//void reinitial_scheme_2d_old();
+	void initialize_tree();
+
+	void deletelink(struct pointphi_2d *current);
+	struct pointphi_2d *addlink(double x, double y, double phi, struct pointphi_2d *left, struct pointphi_2d *right, struct pointphi_2d *top, struct pointphi_2d *bottom);
+	
+	bool lipschitz_cond(struct quadtree *current, bool b_initial);
+	void generate_tree(struct quadtree *current, bool b_initial);
+	void addtree(struct quadtree *current, bool b_initial);
+	void deletetree(struct quadtree *current);
+
+	void deletelink(struct pointphi_3d *current, bool b);
+	struct pointphi_3d *addlink(double x, double y, double z, double phi, struct pointphi_3d *left, struct pointphi_3d *right, struct pointphi_3d *top, struct pointphi_3d *bottom, struct pointphi_3d *front, struct pointphi_3d *back);
+	
+	bool lipschitz_cond(struct octree *current, bool b_initial);
+	void generate_tree(struct octree *current, bool b_initial);
+	void addtree(struct octree *current, bool b_initial);
+	void deletetree(struct octree *current);
+
+	// 2. extrapolating level sets
+
+	void tree_extrapolation(double *burning_rate);
+
+	// 3. propagating level sets
+
+	void tree_propagate_surface_velocity(int num);
+	void tree_propagate_surface(double *burning_rate);
+
+	// 4. reinitializing level sets
+
+	double reinitial_scheme();
+	void iter_reinitial_scheme();
+
+	// 5. moving points
+	
+	struct quadtree *find_cell_containing_point(double x, double y);
+	double level_computephi(double x, double y);
+
+	struct octree *find_cell_containing_point(double x, double y, double z);
+	double level_computephi(double x, double y, double z);
+	
+	void tree_propagate_velocity_fluid_points(int num);
+	void tree_propagate_fluid_points(double *burning_rate);
+
+	// 6. remeshing level sets
+	
+	void tree_remesh();
+	void tree_remesh_flow();
+
+	void tree_reconstruct_coarse_surface(double csize);
+
+	void iter_tree_reconstruct_surface();
+	void tree_reconstruct_surface_2d(struct quadtree *current, struct surface *tempsurf, int &point_num, int &edge_num);
+	void tree_reconstruct_surface_3d(struct octree *current, struct surface *tempsurf, int &point_num, int &edge_num);
+	
+
+	/* Case, Propellent Saving */
+	
+	void initialize_tree(int type);
+	struct pointphi_2d *addlink(double x, double y, double phi, struct pointphi_2d *left, struct pointphi_2d *right, struct pointphi_2d *top, struct pointphi_2d *bottom, int type);
+	
+	bool lipschitz_cond(struct quadtree *current, int type);
+	void generate_tree(struct quadtree *current, int type);
+	void addtree(struct quadtree *current, int type);
+
+	struct pointphi_3d *addlink(double x, double y, double z, double phi, struct pointphi_3d *left, struct pointphi_3d *right, struct pointphi_3d *top, struct pointphi_3d *bottom, struct pointphi_3d *front, struct pointphi_3d *back, int type);
+	
+	bool lipschitz_cond(struct octree *current, int type);
+	void generate_tree(struct octree *current, int type);
+	void addtree(struct octree *current, int type);
+	
+	struct quadtree *find_cell_containing_point_type(double x, double y, int type);
+	double level_computephi_type(double x, double y, int type);
+
+	struct octree *find_cell_containing_point_type(double x, double y, double z, int type);
+	double level_computephi_type(double x, double y, double z, int type);
+
+
+	/* Testing Function */
+
+	double **mat_savingtree;
+	double *array_savingtree;
+
+	int link_num;
+	int tree_num;
+	int tree_end_num;
+
+	int numnode;
+	void savingtree();
+	void savingtree_recursive(struct quadtree *current);
+	void savingtree_recursive(struct octree *current);
+
+	void signphi();
+
+	double test_volume(struct surface * after_surface);
+	double test_volume2(struct surface * after_surface);
+	void test_volume_recursive(struct quadtree *current, double *d, double *e);
+
+    double test_l1(struct surface *after_surface);
+    void test_l1_recursive(struct quadtree *current, struct surface *surf, double *d, double *e);
+
+    double test_linf(struct surface *after_surface);
+    void test_linf_recursive(struct quadtree *current, struct surface *surf, double *d);
+
+
+	/* No using */
+	
+	void modify_coeffs(double x1, double x2, double y1, double y2);
+
+
+	/*//void reinitial_scheme_2d_old();
 	//void iter_reinitial_scheme_2d_old();
 
 
@@ -96,97 +185,6 @@ public:
 	//void construct_phi_old();
 	//void extrapolate_burning_rate();
 
-	
-	double **mat_savingtree;		// test function
-	double *array_savingtree;
-
-	int numnode;
-	void savingtree();
-	void savingtree_recursive(struct quadtree *current);
-	void savingtree_recursive(struct octree *current);
-
-	void signphi();
-
-	double test_volume(struct surface * after_surface);
-	void test_volume_recursive(struct quadtree *current, double *d, double *e);
-
-    double test_l1(struct surface *after_surface);
-    void test_l1_recursive(struct quadtree *current, struct surface *surf, double *d, double *e);
-
-    double test_linf(struct surface *after_surface);
-    void test_linf_recursive(struct quadtree *current, struct surface *surf, double *d, double *e);
-
-	int link_num;
-	int tree_num;
-	int tree_end_num;
-
-
-private:
-
-	/* Basic Factors */
-
-	int dimension; // 1 or 2 or 3
-	double time_step;
-	int accuracy_order;
-	struct surface * boundary;
-	int max_tree_depth;
-
-
-	/* Functions for 2 dimension */
-
-	struct pointphi_2d *tree_point_phi_2d_start;
-	struct pointphi_2d *tree_point_phi_2d_tail;
-	struct quadtree *tree_grid_2d;
-	
-
-	void deletelink(struct pointphi_2d *current);
-	struct pointphi_2d *addlink(double x, double y, double phi, struct pointphi_2d *left, struct pointphi_2d *right, struct pointphi_2d *top, struct pointphi_2d *bottom);
-	
-	bool lipschitz_cond(struct quadtree *current, bool b_initial);
-	void generate_tree(struct quadtree *current, bool b_initial);
-	void addtree(struct quadtree *current, bool b_initial);
-	void deletetree(struct quadtree *current);
-
-	double level_computephi(double x, double y);
-
-	void tree_reconstruct_surface_2d(struct quadtree *current, struct surface *tempsurf, int &point_num, int &edge_num);
-	
-	void modify_coeffs(double x1, double x2, double y1, double y2);
-
-
-	/* Functions for 3 dimension */
-
-	// 1. Tree structures
-
-	struct pointphi_3d *tree_point_phi_3d_start;
-	struct pointphi_3d *tree_point_phi_3d_tail;
-	struct octree *tree_grid_3d;
-
-	// 2. making trees
-
-	void deletelink(struct pointphi_3d *current);
-	struct pointphi_3d *addlink(double x, double y, double z, double phi, struct pointphi_3d *left, struct pointphi_3d *right, struct pointphi_3d *top, struct pointphi_3d *bottom, struct pointphi_3d *front, struct pointphi_3d *back);
-	
-	bool lipschitz_cond(struct octree *current, bool b_initial);
-	void generate_tree(struct octree *current, bool b_initial);
-	void addtree(struct octree *current, bool b_initial);
-	void deletetree(struct octree *current);
-
-	// 3. extrapolating level sets
-
-	// 4. operators for level sets
-	
-	double level_computephi(double x, double y, double z);
-
-	double tree_hg(struct pointphi_3d *point, bool pm, double si1, double si2, double si3, double sj1, double sj2, double sj3);
-
-	// 5. propagating level sets
-
-	// 6. reconstructing level sets
-
-	void tree_reconstruct_surface_3d(struct octree *current, struct surface *tempsurf, int &point_num, int &edge_num);
-
-	
 	//double mesh_size;
 	//double tree_hg_old(struct pointphi_2d *point, bool pm, double si1, double si2, double sj1, double sj2);
 
@@ -196,7 +194,7 @@ private:
 	//int propagate_num;
 	//double g_HJ(int i, int j, int k);
 	//void bounding_construct_phi(int i0);
-	//bool in_bounding(int i, int j, int k);
+	//bool in_bounding(int i, int j, int k);*/
 };
 
 void level_set::deletelink(struct pointphi_2d *current)
@@ -219,7 +217,7 @@ void level_set::deletelink(struct pointphi_2d *current)
 	link_num--;
 }
 
-void level_set::deletelink(struct pointphi_3d *current)
+void level_set::deletelink(struct pointphi_3d *current, bool b)
 {
 	if(current->before!=NULL) current->before->next = current->next;
 	if(current->next!=NULL) current->next->before = current->before;
@@ -229,12 +227,25 @@ void level_set::deletelink(struct pointphi_3d *current)
 		tree_point_phi_3d_start = NULL;
 		tree_point_phi_3d_tail = NULL;
 	}
-	if(current->left!=NULL) current->left->right = current->right;
-	if(current->right!=NULL) current->right->left = current->left;
-	if(current->top!=NULL) current->top->bottom = current->bottom;
-	if(current->bottom!=NULL) current->bottom->top = current->top;
-	if(current->front!=NULL) current->front->back = current->back;
-	if(current->back!=NULL) current->back->front = current->front;
+	
+	if(b==true)
+	{
+		if(current->left!=NULL) current->left->right = current->right;
+		if(current->right!=NULL) current->right->left = current->left;
+		if(current->bottom!=NULL) current->bottom->top = current->top;
+		if(current->top!=NULL) current->top->bottom = current->bottom;
+		if(current->back!=NULL) current->back->front = current->front;
+		if(current->front!=NULL) current->front->back = current->back;
+	}
+	else
+	{
+		if(current->left!=NULL) current->left->right = NULL;
+		if(current->right!=NULL) current->right->left = NULL;
+		if(current->bottom!=NULL) current->bottom->top = NULL;
+		if(current->top!=NULL) current->top->bottom = NULL;
+		if(current->back!=NULL) current->back->front = NULL;
+		if(current->front!=NULL) current->front->back = NULL;
+	}
 
 	delete current;
 
@@ -259,6 +270,9 @@ struct pointphi_2d *level_set::addlink(double x, double y, double phi, struct po
 	newpoint->x = x;
 	newpoint->y = y;
 	newpoint->phi = phi;
+	newpoint->b_rate = 1.;
+
+	if(rcase_surface!=NULL && level_computephi_type(x,y,0) > 0) newpoint->b_rate = 0.;
 
 	if(tree_point_phi_2d_start==NULL) tree_point_phi_2d_start = newpoint;
 
@@ -292,6 +306,9 @@ struct pointphi_3d *level_set::addlink(double x, double y, double z, double phi,
 	newpoint->y = y;
 	newpoint->z = z;
 	newpoint->phi = phi;
+	newpoint->b_rate = 1.;
+
+	if(rcase_surface!=NULL && level_computephi_type(x,y,z,0) > 0) newpoint->b_rate = 0.;
 
 	if(tree_point_phi_3d_start==NULL) tree_point_phi_3d_start = newpoint;
 
@@ -302,45 +319,8 @@ struct pointphi_3d *level_set::addlink(double x, double y, double z, double phi,
 	return newpoint;
 }
 
-level_set::level_set(int dim, int depth, double timestep, struct surface* initsurf, struct surface* bdry)
+void level_set::initialize_tree()
 {
-	dimension = dim;
-	max_tree_depth = depth;
-	time_step = timestep;
-	accuracy_order = 1;
-	level_surface = initsurf;
-	boundary = bdry;
-	
-	//mesh_size = 0.1;
-	//mesh_x_num = (int)floor(MAXSIZE/mesh_size);
-	//mesh_y_num = (int)floor(MAXSIZE/mesh_size);
-	//mesh_z_num = (int)floor(MAXSIZE/mesh_size);
-
-	//level_phi_2d = NULL;
-	//level_phi_3d = NULL;
-	//level_burning_rate_2d = NULL;
-	//level_burning_rate_3d = NULL;
-
-	//padding_num = 8;
-	//propagate_num = 0;
-
-	tree_grid_2d = NULL;
-	tree_point_phi_2d_start = NULL;
-	tree_point_phi_2d_tail = NULL;
-
-	tree_grid_3d = NULL;
-	tree_point_phi_3d_start = NULL;
-	tree_point_phi_3d_tail = NULL;
-
-
-	mat_savingtree = NULL;
-	array_savingtree = NULL;
-	numnode = 0;			// exists for saving tree
-	
-	link_num = 0;
-	tree_num = 1;
-	tree_end_num = 1;
-
 	if(dimension==2)
 	{
 		tree_grid_2d = new quadtree();
@@ -351,7 +331,7 @@ level_set::level_set(int dim, int depth, double timestep, struct surface* initsu
 		struct pointphi_2d *initlefttop = addlink(0.,(double)MAXSIZE,distance_circle_point(0.,(double)MAXSIZE,0.15,0.5,0.5),NULL, NULL, NULL, NULL);
 		struct pointphi_2d *initrightbottom = addlink((double)MAXSIZE,0.,distance_circle_point((double)MAXSIZE,0.,0.15,0.5,0.5),NULL, NULL, NULL, NULL);
 		struct pointphi_2d *initrighttop = addlink((double)MAXSIZE,(double)MAXSIZE,distance_circle_point((double)MAXSIZE,(double)MAXSIZE,0.15,0.5,0.5),NULL, NULL, NULL, NULL);*/
-
+		
 		struct pointphi_2d *initleftbottom = addlink(0.,0.,distance_surf_point(level_surface,0.,0.,0), NULL, NULL, NULL, NULL);
 		struct pointphi_2d *initlefttop = addlink(0.,(double)MAXSIZE,distance_surf_point(level_surface,0.,(double)MAXSIZE,0), NULL, NULL, NULL, NULL);
 		struct pointphi_2d *initrightbottom = addlink((double)MAXSIZE,0.,distance_surf_point(level_surface,(double)MAXSIZE,0.,0), NULL, NULL, NULL, NULL);
@@ -374,14 +354,11 @@ level_set::level_set(int dim, int depth, double timestep, struct surface* initsu
 		tree_grid_2d->phi_rightbottom = initrightbottom;
 		tree_grid_2d->phi_righttop = initrighttop;
 
-		quadtree_coeffs_saving(tree_grid_2d, initleftbottom);
+		/*quadtree_coeffs_saving(tree_grid_2d, initleftbottom);
 		quadtree_coeffs_saving(tree_grid_2d, initlefttop);
 		quadtree_coeffs_saving(tree_grid_2d, initrightbottom);
-		quadtree_coeffs_saving(tree_grid_2d, initrighttop);
-
-		generate_tree(tree_grid_2d, true);
+		quadtree_coeffs_saving(tree_grid_2d, initrighttop);*/
 	}
-
 	if(dimension==3)
 	{
 		tree_grid_3d = new octree();
@@ -392,7 +369,7 @@ level_set::level_set(int dim, int depth, double timestep, struct surface* initsu
 		struct pointphi_3d *initlefttopback = addlink(0.,(double)MAXSIZE,0.,distance_surf_point(level_surface,0.,(double)MAXSIZE,0.),NULL, NULL, NULL, NULL, NULL, NULL);
 		struct pointphi_3d *initrightbottomback = addlink((double)MAXSIZE,0.,0.,distance_surf_point(level_surface,(double)MAXSIZE,0.,0.),NULL, NULL, NULL, NULL, NULL, NULL);
 		struct pointphi_3d *initrighttopback = addlink((double)MAXSIZE,(double)MAXSIZE,0.,distance_surf_point(level_surface,(double)MAXSIZE,(double)MAXSIZE,0.),NULL, NULL, NULL, NULL, NULL, NULL);
-
+		
 		struct pointphi_3d *initleftbottomfront = addlink(0.,0.,(double)MAXSIZE,distance_surf_point(level_surface,0.,0.,(double)MAXSIZE), NULL, NULL, NULL, NULL, NULL, NULL);
 		struct pointphi_3d *initlefttopfront = addlink(0.,(double)MAXSIZE,(double)MAXSIZE,distance_surf_point(level_surface,0.,(double)MAXSIZE,(double)MAXSIZE),NULL, NULL, NULL, NULL, NULL, NULL);
 		struct pointphi_3d *initrightbottomfront = addlink((double)MAXSIZE,0.,(double)MAXSIZE,distance_surf_point(level_surface,(double)MAXSIZE,0.,(double)MAXSIZE),NULL, NULL, NULL, NULL, NULL, NULL);
@@ -441,10 +418,91 @@ level_set::level_set(int dim, int depth, double timestep, struct surface* initsu
 		tree_grid_3d->phi_lefttopfront = initlefttopfront;
 		tree_grid_3d->phi_rightbottomfront = initrightbottomfront;
 		tree_grid_3d->phi_righttopfront = initrighttopfront;
+	}
+}
 
-		generate_tree(tree_grid_3d, true);
+level_set::level_set(int dim, int depth, double timestep, struct surface* initsurf, struct surface* rcase, struct surface *propel)
+{
+	dimension = dim;
+	max_tree_depth = depth;
+	time_step = timestep;
+	accuracy_order = 1;
+	level_surface = initsurf;
+	fluid_surface_points = NULL;
+	fluid_surface_edges = NULL;
+	fluid_surface_faces = NULL;
+	fluid_surface_points_num = 0;
+	fluid_surface_edges_num = 0;
+	fluid_surface_faces_num = 0;
+	rcase_surface = rcase;
+	propel_surface = propel;
+
+	tree_grid_2d = NULL;
+	tree_point_phi_2d_start = NULL;
+	tree_point_phi_2d_tail = NULL;
+
+	tree_grid_3d = NULL;
+	tree_point_phi_3d_start = NULL;
+	tree_point_phi_3d_tail = NULL;
+
+	tree_rcase_grid_2d = NULL;
+	tree_rcase_point_phi_2d_start = NULL;
+	tree_rcase_point_phi_2d_tail = NULL;
+
+	tree_rcase_grid_3d = NULL;
+	tree_rcase_point_phi_3d_start = NULL;
+	tree_rcase_point_phi_3d_tail = NULL;
+
+	tree_propel_grid_2d = NULL;
+	tree_propel_point_phi_2d_start = NULL;
+	tree_propel_point_phi_2d_tail = NULL;
+
+	tree_propel_grid_3d = NULL;
+	tree_propel_point_phi_3d_start = NULL;
+	tree_propel_point_phi_3d_tail = NULL;
+
+
+	mat_savingtree = NULL;
+	array_savingtree = NULL;
+	numnode = 0;			// exists for saving tree
+	
+	link_num = 0;
+	tree_num = 1;
+	tree_end_num = 1;
+
+	if(rcase_surface!=NULL)
+	{
+		initialize_tree(0);
+		
+		if(dimension==2) generate_tree(tree_rcase_grid_2d, 0);
+		if(dimension==3) generate_tree(tree_rcase_grid_3d, 0);
+	}
+	if(propel_surface!=NULL)
+	{
+		initialize_tree(1);
+		
+		if(dimension==2) generate_tree(tree_propel_grid_2d, 1);
+		if(dimension==3) generate_tree(tree_propel_grid_3d, 1);
 	}
 
+	initialize_tree();
+
+	if(dimension==2) generate_tree(tree_grid_2d, true);
+	if(dimension==3) generate_tree(tree_grid_3d, true);
+	
+	
+	//mesh_size = 0.1;
+	//mesh_x_num = (int)floor(MAXSIZE/mesh_size);
+	//mesh_y_num = (int)floor(MAXSIZE/mesh_size);
+	//mesh_z_num = (int)floor(MAXSIZE/mesh_size);
+
+	//level_phi_2d = NULL;
+	//level_phi_3d = NULL;
+	//level_burning_rate_2d = NULL;
+	//level_burning_rate_3d = NULL;
+
+	//padding_num = 8;
+	//propagate_num = 0;
 
 	//construct_phi();
 
@@ -455,7 +513,6 @@ level_set::~level_set()
 {
 	if(dimension == 2)
 	{
-
 		if(tree_point_phi_2d_start!=NULL)
 		{
 			pointphi_2d *temp = tree_point_phi_2d_tail;
@@ -470,12 +527,56 @@ level_set::~level_set()
 		{
 			delete_all_quadtree(tree_grid_2d);
 		}
+		
+		if(tree_rcase_point_phi_2d_start!=NULL)
+		{
+			pointphi_2d *temp = tree_rcase_point_phi_2d_tail;
+			while(temp!=NULL)
+			{
+				pointphi_2d *temp2 = temp->before;
+				delete temp;
+				temp = temp2;
+			}
+		}
+		if(tree_rcase_grid_2d!=NULL)
+		{
+			delete_all_quadtree(tree_rcase_grid_2d);
+		}
+		
+		if(tree_propel_point_phi_2d_start!=NULL)
+		{
+			pointphi_2d *temp = tree_propel_point_phi_2d_tail;
+			while(temp!=NULL)
+			{
+				pointphi_2d *temp2 = temp->before;
+				delete temp;
+				temp = temp2;
+			}
+		}
+		if(tree_propel_grid_2d!=NULL)
+		{
+			delete_all_quadtree(tree_propel_grid_2d);
+		}
 
 		if(mat_savingtree!=NULL)
 		{
 			int i;
 			for(i=0; i<MAXSAVING; i++) delete [] mat_savingtree[i];
 			delete [] mat_savingtree;
+		}
+
+		if(fluid_surface_points!=NULL)
+		{
+			int i;
+			for(i=0; i<2; i++) delete [] fluid_surface_points[i];
+			delete [] fluid_surface_points;
+		}
+
+		if(fluid_surface_edges!=NULL)
+		{
+			int i;
+			for(i=0; i<2; i++) delete [] fluid_surface_edges[i];
+			delete [] fluid_surface_edges;
 		}
 
 		//int i;
@@ -494,7 +595,6 @@ level_set::~level_set()
 	}
 	if(dimension == 3)
 	{
-
 		if(tree_point_phi_3d_start!=NULL)
 		{
 			pointphi_3d *temp = tree_point_phi_3d_tail;
@@ -510,7 +610,52 @@ level_set::~level_set()
 			delete_all_octree(tree_grid_3d);
 		}
 
+		if(tree_rcase_point_phi_3d_start!=NULL)
+		{
+			pointphi_3d *temp = tree_rcase_point_phi_3d_tail;
+			while(temp!=NULL)
+			{
+				pointphi_3d *temp2 = temp->before;
+				delete temp;
+				temp = temp2;
+			}
+		}
+		if(tree_rcase_grid_3d!=NULL)
+		{
+			delete_all_octree(tree_rcase_grid_3d);
+		}
+
+		if(tree_propel_point_phi_3d_start!=NULL)
+		{
+			pointphi_3d *temp = tree_propel_point_phi_3d_tail;
+			while(temp!=NULL)
+			{
+				pointphi_3d *temp2 = temp->before;
+				delete temp;
+				temp = temp2;
+			}
+		}
+		if(tree_propel_grid_3d!=NULL)
+		{
+			delete_all_octree(tree_propel_grid_3d);
+		}
+
 		if(array_savingtree!=NULL) delete [] array_savingtree;
+
+
+		if(fluid_surface_points!=NULL)
+		{
+			int i;
+			for(i=0; i<3; i++) delete [] fluid_surface_points[i];
+			delete [] fluid_surface_points;
+		}
+
+		if(fluid_surface_faces!=NULL)
+		{
+			int i;
+			for(i=0; i<3; i++) delete [] fluid_surface_faces[i];
+			delete [] fluid_surface_faces;
+		}
 
 		/*int i; int j;
 		

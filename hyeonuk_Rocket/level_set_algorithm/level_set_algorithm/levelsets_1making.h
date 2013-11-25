@@ -45,13 +45,13 @@ bool level_set::lipschitz_cond(struct quadtree *current, bool b_initial)
 
 	double d = min(min(min(d1,d2),d3),d4);
 	
-	if(d < l*sqrt(2.)) return true;
+	if(d < 2.*l*sqrt(2.)) return true;
 	else return false;
 }
 
 bool level_set::lipschitz_cond(struct octree *current, bool b_initial)
 {
-	double gamma = 5.;
+	double gamma = 3.;
 
 	double x = current->phi_leftbottomback->x;
 	double y = current->phi_leftbottomback->y;
@@ -178,7 +178,7 @@ void level_set::deletetree(struct quadtree *current)
 	current->tree_righttop = NULL;
 	current->tree_rightbottom = NULL;
 
-	modify_coeffs(x,x+l,y-l,y);
+	//modify_coeffs(x,x+l,y-l,y);
 
 	tree_num-=4;
 	tree_end_num-=3;
@@ -195,61 +195,54 @@ void level_set::deletetree(struct octree *current)
 	if(current->tree_rightbottomfront->tree_leftbottomback!=NULL) deletetree(current->tree_rightbottomfront);
 	if(current->tree_righttopfront->tree_leftbottomback!=NULL) deletetree(current->tree_righttopfront);
 
-	deletelink(current->tree_leftbottomback->phi_righttopfront);
+	deletelink(current->tree_leftbottomback->phi_righttopfront, false);
 
-	current->tree_leftbottomback->phi_lefttopfront->right = NULL;
-	current->tree_leftbottomback->phi_rightbottomfront->top = NULL;
-	current->tree_leftbottomback->phi_righttopback->front = NULL;
-	current->tree_righttopfront->phi_rightbottomback->left = NULL;
-	current->tree_righttopfront->phi_lefttopback->bottom = NULL;
-	current->tree_righttopfront->phi_leftbottomfront->back = NULL;
-
-	if(current->tree_leftbottomback->phi_lefttopfront->left == NULL) deletelink(current->tree_leftbottomback->phi_lefttopfront);
-	if(current->tree_leftbottomback->phi_rightbottomfront->bottom == NULL) deletelink(current->tree_leftbottomback->phi_rightbottomfront);
-	if(current->tree_leftbottomback->phi_righttopback->back == NULL) deletelink(current->tree_leftbottomback->phi_righttopback);
-	if(current->tree_righttopfront->phi_rightbottomback->right == NULL) deletelink(current->tree_righttopfront->phi_rightbottomback);
-	if(current->tree_righttopfront->phi_lefttopback->top == NULL) deletelink(current->tree_righttopfront->phi_lefttopback);
-	if(current->tree_righttopfront->phi_leftbottomfront->front == NULL) deletelink(current->tree_righttopfront->phi_leftbottomfront);
+	if(current->tree_leftbottomback->phi_lefttopfront->left == NULL) deletelink(current->tree_leftbottomback->phi_lefttopfront, false);
+	if(current->tree_leftbottomback->phi_rightbottomfront->bottom == NULL) deletelink(current->tree_leftbottomback->phi_rightbottomfront, false);
+	if(current->tree_leftbottomback->phi_righttopback->back == NULL) deletelink(current->tree_leftbottomback->phi_righttopback, false);
+	if(current->tree_righttopfront->phi_rightbottomback->right == NULL) deletelink(current->tree_righttopfront->phi_rightbottomback, false);
+	if(current->tree_righttopfront->phi_lefttopback->top == NULL) deletelink(current->tree_righttopfront->phi_lefttopback, false);
+	if(current->tree_righttopfront->phi_leftbottomfront->front == NULL) deletelink(current->tree_righttopfront->phi_leftbottomfront, false);
 	
 	//phi_leftbottom
 	if(current->tree_leftbottomback->phi_leftbottomfront->left == NULL
-		&& current->tree_leftbottomback->phi_leftbottomfront->bottom == NULL) deletelink(current->tree_leftbottomback->phi_leftbottomfront);
+		&& current->tree_leftbottomback->phi_leftbottomfront->bottom == NULL) deletelink(current->tree_leftbottomback->phi_leftbottomfront, true);
 	//phi_bottomback
 	if(current->tree_leftbottomback->phi_rightbottomback->bottom == NULL
-		&& current->tree_leftbottomback->phi_rightbottomback->back == NULL) deletelink(current->tree_leftbottomback->phi_rightbottomback);
+		&& current->tree_leftbottomback->phi_rightbottomback->back == NULL) deletelink(current->tree_leftbottomback->phi_rightbottomback, true);
 	//phi_leftback
 	if(current->tree_leftbottomback->phi_lefttopback->left == NULL
-		&& current->tree_leftbottomback->phi_lefttopback->back == NULL) deletelink(current->tree_leftbottomback->phi_lefttopback);
+		&& current->tree_leftbottomback->phi_lefttopback->back == NULL) deletelink(current->tree_leftbottomback->phi_lefttopback, true);
 	
 	//phi_righttop
 	if(current->tree_righttopback->phi_righttopfront->right == NULL
-		&& current->tree_righttopback->phi_righttopfront->top == NULL) deletelink(current->tree_righttopback->phi_righttopfront);
+		&& current->tree_righttopback->phi_righttopfront->top == NULL) deletelink(current->tree_righttopback->phi_righttopfront, true);
 	//phi_topback
 	if(current->tree_righttopback->phi_lefttopback->top == NULL
-		&& current->tree_righttopback->phi_lefttopback->back == NULL) deletelink(current->tree_righttopback->phi_lefttopback);
+		&& current->tree_righttopback->phi_lefttopback->back == NULL) deletelink(current->tree_righttopback->phi_lefttopback, true);
 	//phi_rightback
 	if(current->tree_righttopback->phi_rightbottomback->right == NULL
-		&& current->tree_righttopback->phi_rightbottomback->back == NULL) deletelink(current->tree_righttopback->phi_rightbottomback);
+		&& current->tree_righttopback->phi_rightbottomback->back == NULL) deletelink(current->tree_righttopback->phi_rightbottomback, true);
 	
 	//phi_lefttop
 	if(current->tree_lefttopfront->phi_lefttopback->left == NULL
-		&& current->tree_lefttopfront->phi_lefttopback->top == NULL) deletelink(current->tree_lefttopfront->phi_lefttopback);
+		&& current->tree_lefttopfront->phi_lefttopback->top == NULL) deletelink(current->tree_lefttopfront->phi_lefttopback, true);
 	//phi_topfront
 	if(current->tree_lefttopfront->phi_righttopfront->top == NULL
-		&& current->tree_lefttopfront->phi_righttopfront->front == NULL) deletelink(current->tree_lefttopfront->phi_righttopfront);
+		&& current->tree_lefttopfront->phi_righttopfront->front == NULL) deletelink(current->tree_lefttopfront->phi_righttopfront, true);
 	//phi_leftfront
 	if(current->tree_lefttopfront->phi_leftbottomfront->left == NULL
-		&& current->tree_lefttopfront->phi_leftbottomfront->front == NULL) deletelink(current->tree_lefttopfront->phi_leftbottomfront);
+		&& current->tree_lefttopfront->phi_leftbottomfront->front == NULL) deletelink(current->tree_lefttopfront->phi_leftbottomfront, true);
 	
 	//phi_rightbottom
 	if(current->tree_rightbottomfront->phi_rightbottomback->right == NULL
-		&& current->tree_rightbottomfront->phi_rightbottomback->bottom == NULL) deletelink(current->tree_rightbottomfront->phi_rightbottomback);
+		&& current->tree_rightbottomfront->phi_rightbottomback->bottom == NULL) deletelink(current->tree_rightbottomfront->phi_rightbottomback, true);
 	//phi_bottomfront
 	if(current->tree_rightbottomfront->phi_leftbottomfront->bottom == NULL
-		&& current->tree_rightbottomfront->phi_leftbottomfront->front == NULL) deletelink(current->tree_rightbottomfront->phi_leftbottomfront);
+		&& current->tree_rightbottomfront->phi_leftbottomfront->front == NULL) deletelink(current->tree_rightbottomfront->phi_leftbottomfront, true);
 	//phi_rightfront
 	if(current->tree_rightbottomfront->phi_righttopfront->right == NULL
-		&& current->tree_rightbottomfront->phi_righttopfront->front == NULL) deletelink(current->tree_rightbottomfront->phi_righttopfront);
+		&& current->tree_rightbottomfront->phi_righttopfront->front == NULL) deletelink(current->tree_rightbottomfront->phi_righttopfront, true);
 
 	delete current->tree_leftbottomback;
 	delete current->tree_lefttopback;
@@ -279,10 +272,15 @@ void level_set::addtree(struct quadtree *current, bool b_initial)
 	double y = current->phi_lefttop->y;
 	double l = current->length;
 
-	struct pointphi_2d *phi_left = find_vertex(tree_grid_2d, x, y-l/2.);
+	/*struct pointphi_2d *phi_left = find_vertex(tree_grid_2d, x, y-l/2.);
 	struct pointphi_2d *phi_right = find_vertex(tree_grid_2d, x+l, y-l/2.);
 	struct pointphi_2d *phi_top = find_vertex(tree_grid_2d, x+l/2., y);
-	struct pointphi_2d *phi_bottom = find_vertex(tree_grid_2d, x+l/2., y-l);
+	struct pointphi_2d *phi_bottom = find_vertex(tree_grid_2d, x+l/2., y-l);*/
+
+	struct pointphi_2d *phi_left = find_vertex(current->phi_lefttop, 1, x, y-l/2.);
+	struct pointphi_2d *phi_right = find_vertex(current->phi_righttop, 1, x+l, y-l/2.);
+	struct pointphi_2d *phi_bottom = find_vertex(current->phi_rightbottom, 0, x+l/2., y-l);
+	struct pointphi_2d *phi_top = find_vertex(current->phi_righttop, 0, x+l/2., y);
 	struct pointphi_2d *phi_center;
 
 	if(b_initial==true)
@@ -345,8 +343,8 @@ void level_set::addtree(struct quadtree *current, bool b_initial)
 	current->tree_rightbottom->phi_righttop = phi_right;
 	current->tree_rightbottom->phi_rightbottom = current->phi_rightbottom;
 
-	quadtree_coeffs_saving(tree_grid_2d, phi_center);
-	modify_coeffs(x,x+l,y-l,y);
+	//quadtree_coeffs_saving(tree_grid_2d, phi_center);
+	//modify_coeffs(x,x+l,y-l,y);
 	
 	tree_num+=4;
 	tree_end_num+=3;
@@ -359,7 +357,34 @@ void level_set::addtree(struct octree *current, bool b_initial)
 	double z = current->phi_leftbottomback->z;
 	double l = current->length;
 
-	struct pointphi_3d *phi_left = find_vertex(tree_grid_3d, x, y+l/2., z+l/2.);
+	// left bottom back : 0 1 2
+	// leftbottom leftback bottomback : 3 4 5
+
+	struct pointphi_3d *phi_left = find_vertex(current->phi_lefttopfront, 5, x, y+l/2., z+l/2.);
+	struct pointphi_3d *phi_right = find_vertex(current->phi_righttopfront, 5, x+l, y+l/2., z+l/2.);
+	struct pointphi_3d *phi_bottom = find_vertex(current->phi_rightbottomfront, 4, x+l/2., y, z+l/2.);
+	struct pointphi_3d *phi_top = find_vertex(current->phi_righttopfront, 4, x+l/2., y+l, z+l/2.);
+	struct pointphi_3d *phi_back = find_vertex(current->phi_righttopback, 3, x+l/2., y+l/2., z);
+	struct pointphi_3d *phi_front = find_vertex(current->phi_righttopfront, 3, x+l/2., y+l/2., z+l);
+
+	struct pointphi_3d *phi_center;
+
+	struct pointphi_3d *phi_leftbottom = find_vertex(current->phi_leftbottomfront, 2, x, y, z+l/2.);
+	struct pointphi_3d *phi_rightbottom = find_vertex(current->phi_rightbottomfront, 2, x+l, y, z+l/2.);
+	struct pointphi_3d *phi_lefttop = find_vertex(current->phi_lefttopfront, 2, x, y+l, z+l/2.);
+	struct pointphi_3d *phi_righttop = find_vertex(current->phi_righttopfront, 2, x+l, y+l, z+l/2.);
+
+	struct pointphi_3d *phi_leftback = find_vertex(current->phi_lefttopback, 1, x, y+l/2., z);
+	struct pointphi_3d *phi_leftfront = find_vertex(current->phi_lefttopfront, 1, x, y+l/2., z+l);
+	struct pointphi_3d *phi_rightback = find_vertex(current->phi_righttopback, 1, x+l, y+l/2., z);
+	struct pointphi_3d *phi_rightfront = find_vertex(current->phi_righttopfront, 1, x+l, y+l/2., z+l);
+
+	struct pointphi_3d *phi_bottomback = find_vertex(current->phi_rightbottomback, 0, x+l/2., y, z);
+	struct pointphi_3d *phi_bottomfront = find_vertex(current->phi_rightbottomfront, 0, x+l/2., y, z+l);
+	struct pointphi_3d *phi_topback = find_vertex(current->phi_righttopback, 0, x+l/2., y+l, z);
+	struct pointphi_3d *phi_topfront = find_vertex(current->phi_righttopfront, 0, x+l/2., y+l, z+l);
+
+	/*struct pointphi_3d *phi_left = find_vertex(tree_grid_3d, x, y+l/2., z+l/2.);
 	struct pointphi_3d *phi_right = find_vertex(tree_grid_3d, x+l, y+l/2., z+l/2.);
 	struct pointphi_3d *phi_bottom = find_vertex(tree_grid_3d, x+l/2., y, z+l/2.);
 	struct pointphi_3d *phi_top = find_vertex(tree_grid_3d, x+l/2., y+l, z+l/2.);
@@ -381,7 +406,7 @@ void level_set::addtree(struct octree *current, bool b_initial)
 	struct pointphi_3d *phi_bottomback = find_vertex(tree_grid_3d, x+l/2., y, z);
 	struct pointphi_3d *phi_bottomfront = find_vertex(tree_grid_3d, x+l/2., y, z+l);
 	struct pointphi_3d *phi_topback = find_vertex(tree_grid_3d, x+l/2., y+l, z);
-	struct pointphi_3d *phi_topfront = find_vertex(tree_grid_3d, x+l/2., y+l, z+l);
+	struct pointphi_3d *phi_topfront = find_vertex(tree_grid_3d, x+l/2., y+l, z+l);*/
 
 	if(b_initial==true)
 	{

@@ -1,258 +1,287 @@
 #include "levelsets_4reinitial.h"
 
-void level_set::iter_tree_reconstruct_surface()
+void level_set::tree_propagate_velocity_fluid_points(int num)
 {
-	int i;
-	int max_point_num = (int)(5*10*pow(2,max_tree_depth));
-	int max_edge_num = (int)(5*10*pow(2,max_tree_depth));
-	struct surface tempsurf(2, max_point_num, max_edge_num, false);
-	int point_num = 0;
-	int edge_num = 0;
-	tree_reconstruct_surface_2d(tree_grid_2d, &tempsurf, point_num, edge_num);
-
-	
-	for(i=0; i<level_surface->point_num; i++) delete [] level_surface->point[i];
-	delete [] level_surface->point;
-	for(i=0; i<level_surface->edge_num; i++) delete [] level_surface->edge[i];
-	delete [] level_surface->edge;
-	if(level_surface->burning_rate!=NULL) delete [] level_surface->burning_rate;
-
-	level_surface->point_num = point_num;
-	level_surface->point = new double *[point_num];
-	for(i=0; i<point_num; i++) level_surface->point[i] = new double[dimension];
-	level_surface->edge_num = edge_num;
-	level_surface->edge = new int *[edge_num];
-	for(i=0; i<edge_num; i++) level_surface->edge[i] = new int[2];
-	level_surface->burning_rate = NULL;
-
-	for(i=0; i<point_num; i++)
+	if(dimension==2)
 	{
-		level_surface->point[i][0] = tempsurf.point[i][0];
-		level_surface->point[i][1] = tempsurf.point[i][1];
+		int i;
+		for(i=0; i<fluid_surface_points_num; i++)
+		{
+			double x = fluid_surface_points[0][i];
+			double y = fluid_surface_points[1][i];
+
+			double u = external_velocity_x_2d(x,y,num);
+			double v = external_velocity_y_2d(x,y,num);
+
+			double K1[2] = {u,v};
+
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+
+			double x_temp = x;
+			double y_temp = y;
+
+			x = x + K1[0];
+			y = y + K1[1];
+
+			u = external_velocity_x_2d(x,y,num);
+			v = external_velocity_y_2d(x,y,num);
+
+			K1[0] = u;
+			K1[1] = v;
+
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			
+			x = 3./4.*x_temp + 1./4.*x + 1./4.*K1[0];
+			y = 3./4.*y_temp + 1./4.*y + 1./4.*K1[1];
+
+			u = external_velocity_x_2d(x,y,num);
+			v = external_velocity_y_2d(x,y,num);
+			
+			K1[0] = u;
+			K1[1] = v;
+
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			
+			fluid_surface_points[0][i] = 1./3.*x_temp + 2./3.*x + 2./3.*K1[0];
+			fluid_surface_points[1][i] = 1./3.*y_temp + 2./3.*y + 2./3.*K1[1];
+		}
 	}
-
-	for(i=0; i<edge_num; i++)
+	if(dimension==3)
 	{
-		level_surface->edge[i][0] = tempsurf.edge[i][0];
-		level_surface->edge[i][1] = tempsurf.edge[i][1];
+		int i;
+		for(i=0; i<fluid_surface_points_num; i++)
+		{
+			double x = fluid_surface_points[0][i];
+			double y = fluid_surface_points[1][i];
+			double z = fluid_surface_points[2][i];
+
+			double u = external_velocity_x_3d(x,y,z,num);
+			double v = external_velocity_y_3d(x,y,z,num);
+			double w = external_velocity_z_3d(x,y,z,num);
+
+			double K1[3] = {u,v,w};
+
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			K1[2] *= time_step;
+
+			double x_temp = x;
+			double y_temp = y;
+			double z_temp = z;
+
+			x = x + K1[0];
+			y = y + K1[1];
+			z = z + K1[2];
+
+			u = external_velocity_x_3d(x,y,z,num);
+			v = external_velocity_y_3d(x,y,z,num);
+			w = external_velocity_z_3d(x,y,z,num);
+
+			K1[0] = u;
+			K1[1] = v;
+			K1[2] = w;
+
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			K1[2] *= time_step;
+			
+			x = 3./4.*x_temp + 1./4.*x + 1./4.*K1[0];
+			y = 3./4.*y_temp + 1./4.*y + 1./4.*K1[1];
+			z = 3./4.*z_temp + 1./4.*z + 1./4.*K1[2];
+
+			u = external_velocity_x_3d(x,y,z,num);
+			v = external_velocity_y_3d(x,y,z,num);
+			w = external_velocity_z_3d(x,y,z,num);
+			
+			K1[0] = u;
+			K1[1] = v;
+			K1[2] = w;
+
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			K1[2] *= time_step;
+			
+			fluid_surface_points[0][i] = 1./3.*x_temp + 2./3.*x + 2./3.*K1[0];
+			fluid_surface_points[1][i] = 1./3.*y_temp + 2./3.*y + 2./3.*K1[1];
+			fluid_surface_points[2][i] = 1./3.*z_temp + 2./3.*z + 2./3.*K1[2];
+		}
 	}
 }
 
-void level_set::tree_reconstruct_surface_2d(struct quadtree *current, struct surface *tempsurf, int &point_num, int &edge_num)
+double *convection_normal_point(struct quadtree* current, double x, double y, double r)
 {
-	if(current->tree_lefttop!=NULL)
+	double x1 = current->phi_leftbottom->x;
+	double x2 = current->phi_rightbottom->x;
+	double y1 = current->phi_leftbottom->y;
+	double y2 = current->phi_lefttop->y;
+	double l = current->length;
+			
+	double phi_x = quadtree_dx(current->phi_leftbottom)*(x2-x)/l*(y2-y)/l + quadtree_dx(current->phi_lefttop)*(x2-x)/l*(y-y1)/l
+		+ quadtree_dx(current->phi_rightbottom)*(x-x1)/l*(y2-y)/l + quadtree_dx(current->phi_righttop)*(x-x1)/l*(y-y1)/l;
+	
+			
+	double phi_y = quadtree_dy(current->phi_leftbottom)*(x2-x)/l*(y2-y)/l + quadtree_dy(current->phi_lefttop)*(x2-x)/l*(y-y1)/l
+		+ quadtree_dy(current->phi_rightbottom)*(x-x1)/l*(y2-y)/l + quadtree_dy(current->phi_righttop)*(x-x1)/l*(y-y1)/l;
+
+	double n = sqrt(phi_x*phi_x + phi_y*phi_y);
+
+	double n_x = phi_x/n;
+	double n_y = phi_y/n;
+
+	double u = r*n_x;
+	double v = r*n_y;
+
+	double *velocity = new double[2];
+	velocity[0] = u;
+	velocity[1] = v;
+
+	return velocity;
+}
+
+double *convection_normal_point(struct octree* current, double x, double y, double z, double r)
+{
+	double x1 = current->phi_leftbottomback->x;
+	double x2 = current->phi_rightbottomback->x;
+	double y1 = current->phi_leftbottomback->y;
+	double y2 = current->phi_lefttopback->y;
+	double z1 = current->phi_leftbottomback->z;
+	double z2 = current->phi_leftbottomfront->z;
+	double l = current->length;
+			
+	double phi_x = octree_dx(current->phi_leftbottomback)*(x2-x)/l*(y2-y)/l*(z2-z)/l + octree_dx(current->phi_lefttopback)*(x2-x)/l*(y-y1)/l*(z2-z)/l
+		+ octree_dx(current->phi_rightbottomback)*(x-x1)/l*(y2-y)/l*(z2-z)/l + octree_dx(current->phi_righttopback)*(x-x1)/l*(y-y1)/l*(z2-z)/l
+		+ octree_dx(current->phi_leftbottomfront)*(x2-x)/l*(y2-y)/l*(z-z1)/l + octree_dx(current->phi_lefttopfront)*(x2-x)/l*(y-y1)/l*(z-z1)/l
+		+ octree_dx(current->phi_rightbottomfront)*(x-x1)/l*(y2-y)/l*(z-z1)/l + octree_dx(current->phi_righttopfront)*(x-x1)/l*(y-y1)/l*(z-z1)/l;
+
+	double phi_y = octree_dy(current->phi_leftbottomback)*(x2-x)/l*(y2-y)/l*(z2-z)/l + octree_dy(current->phi_lefttopback)*(x2-x)/l*(y-y1)/l*(z2-z)/l
+		+ octree_dy(current->phi_rightbottomback)*(x-x1)/l*(y2-y)/l*(z2-z)/l + octree_dy(current->phi_righttopback)*(x-x1)/l*(y-y1)/l*(z2-z)/l
+		+ octree_dy(current->phi_leftbottomfront)*(x2-x)/l*(y2-y)/l*(z-z1)/l + octree_dy(current->phi_lefttopfront)*(x2-x)/l*(y-y1)/l*(z-z1)/l
+		+ octree_dy(current->phi_rightbottomfront)*(x-x1)/l*(y2-y)/l*(z-z1)/l + octree_dy(current->phi_righttopfront)*(x-x1)/l*(y-y1)/l*(z-z1)/l;
+
+	double phi_z = octree_dz(current->phi_leftbottomback)*(x2-x)/l*(y2-y)/l*(z2-z)/l + octree_dz(current->phi_lefttopback)*(x2-x)/l*(y-y1)/l*(z2-z)/l
+		+ octree_dz(current->phi_rightbottomback)*(x-x1)/l*(y2-y)/l*(z2-z)/l + octree_dz(current->phi_righttopback)*(x-x1)/l*(y-y1)/l*(z2-z)/l
+		+ octree_dz(current->phi_leftbottomfront)*(x2-x)/l*(y2-y)/l*(z-z1)/l + octree_dz(current->phi_lefttopfront)*(x2-x)/l*(y-y1)/l*(z-z1)/l
+		+ octree_dz(current->phi_rightbottomfront)*(x-x1)/l*(y2-y)/l*(z-z1)/l + octree_dz(current->phi_righttopfront)*(x-x1)/l*(y-y1)/l*(z-z1)/l;
+
+	double n = sqrt(phi_x*phi_x + phi_y*phi_y + phi_z*phi_z);
+
+	double n_x = phi_x/n;
+	double n_y = phi_y/n;
+	double n_z = phi_z/n;
+
+	double u = r*n_x;
+	double v = r*n_y;
+	double w = r*n_z;
+
+	double *velocity = new double[3];
+	velocity[0] = u;
+	velocity[1] = v;
+	velocity[2] = w;
+
+	return velocity;
+}
+
+void level_set::tree_propagate_fluid_points(double *burning_rate)
+{
+	if(dimension==2)
 	{
-		tree_reconstruct_surface_2d(current->tree_lefttop, tempsurf, point_num, edge_num);
-		tree_reconstruct_surface_2d(current->tree_leftbottom, tempsurf, point_num, edge_num);
-		tree_reconstruct_surface_2d(current->tree_righttop, tempsurf, point_num, edge_num);
-		tree_reconstruct_surface_2d(current->tree_rightbottom, tempsurf, point_num, edge_num);
+		int i;
+		for(i=0; i<fluid_surface_points_num; i++)
+		{
+			double x = fluid_surface_points[0][i];
+			double y = fluid_surface_points[1][i];
+			struct quadtree *current = find_cell_containing_point(x,y);
+
+			double r;
+
+			if(burning_rate!=NULL) r = burning_rate[i];
+			else r = 1.;
+
+			if(rcase_surface!=NULL && level_computephi_type(x,y,0) > 0) r = 0.;
+
+			double *K1 = convection_normal_point(current, x, y, r);
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+
+			double x_temp = x;
+			double y_temp = y;
+
+			x = x + K1[0];
+			y = y + K1[1];
+
+			delete K1;
+
+			K1 = convection_normal_point(current, x, y, r);
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			
+			x = 3./4.*x_temp + 1./4.*x + 1./4.*K1[0];
+			y = 3./4.*y_temp + 1./4.*y + 1./4.*K1[1];
+
+			delete K1;
+
+			K1 = convection_normal_point(current, x, y, r);
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			
+			fluid_surface_points[0][i] = 1./3.*x_temp + 2./3.*x + 2./3.*K1[0];
+			fluid_surface_points[1][i] = 1./3.*y_temp + 2./3.*y + 2./3.*K1[1];
+		}
 	}
-	else
+	if(dimension==3)
 	{
-		int k1; int k2;
+		int i;
+		for(i=0; i<fluid_surface_points_num; i++)
+		{
+			double x = fluid_surface_points[0][i];
+			double y = fluid_surface_points[1][i];
+			double z = fluid_surface_points[2][i];
+			struct octree *current = find_cell_containing_point(x,y,z);
 
-		double phi_lefttop = current->phi_lefttop->phi;
-		double phi_leftbottom = current->phi_leftbottom->phi;
-		double phi_righttop = current->phi_righttop->phi;
-		double phi_rightbottom = current->phi_rightbottom->phi;
-		
-		double x = current->phi_lefttop->x;
-		double y = current->phi_lefttop->y;
-		double l = current->length;
+			double r;
 
-		double x_left = x;
-		double y_left = (abs(phi_lefttop)*(y-l) + abs(phi_leftbottom)*y)/(abs(phi_lefttop) + abs(phi_leftbottom));
-		double x_right = x+l;
-		double y_right = (abs(phi_righttop)*(y-l) + abs(phi_rightbottom)*y)/(abs(phi_righttop) + abs(phi_rightbottom));
-		double x_top = (abs(phi_lefttop)*(x+l) + abs(phi_righttop)*x)/(abs(phi_lefttop) + abs(phi_righttop));
-		double y_top = y;
-		double x_bottom = (abs(phi_leftbottom)*(x+l) + abs(phi_rightbottom)*x)/(abs(phi_leftbottom) + abs(phi_rightbottom));
-		double y_bottom = y-l;
+			if(burning_rate!=NULL) r = burning_rate[i];
+			else r = 1.;
 
-		//double x_left = x;
-		//double y_left = y-l/2.;
-		//double x_right = x+l;
-		//double y_right = y-l/2.;
-		//double x_top = x+l/2.;
-		//double y_top = y;
-		//double x_bottom = x+l/2.;
-		//double y_bottom = y-l;
+			if(rcase_surface!=NULL && level_computephi_type(x,y,z,0) > 0) r = 0.;
 
-		if(phi_leftbottom>0 && phi_rightbottom>0 && phi_lefttop>0 && phi_righttop>0);			//1
-		else if(phi_leftbottom<0 && phi_rightbottom<0 && phi_lefttop<0 && phi_righttop<0);		//2
-		else if(l != MAXSIZE * pow(2,-max_tree_depth))
-		{
-			double d = 5;
-		}
-		else if(phi_leftbottom>=0 && phi_rightbottom>=0 && phi_lefttop>=0 && phi_righttop<=0)		//3
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom>=0 && phi_rightbottom>=0 && phi_lefttop<=0 && phi_righttop>=0)		//4
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom>=0 && phi_rightbottom>=0 && phi_lefttop<=0 && phi_righttop<=0)		//5
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom>=0 && phi_rightbottom<=0 && phi_lefttop>=0 && phi_righttop>=0)		//6
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom>=0 && phi_rightbottom<=0 && phi_lefttop>=0 && phi_righttop<=0)		//7
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom>=0 && phi_rightbottom<=0 && phi_lefttop<=0 && phi_righttop>=0)		//8
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-					
-			k1 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom>=0 && phi_rightbottom<=0 && phi_lefttop<=0 && phi_righttop<=0)		//9
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom<=0 && phi_rightbottom>=0 && phi_lefttop>=0 && phi_righttop>=0)		//10
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom<=0 && phi_rightbottom>=0 && phi_lefttop>=0 && phi_righttop<=0)		//11
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-					
-			k1 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom<=0 && phi_rightbottom>=0 && phi_lefttop<=0 && phi_righttop>=0)		//12
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom<=0 && phi_rightbottom>=0 && phi_lefttop<=0 && phi_righttop<=0)		//13
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_bottom, y_bottom, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom<=0 && phi_rightbottom<=0 && phi_lefttop>=0 && phi_righttop>=0)		//14
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom<=0 && phi_rightbottom<=0 && phi_lefttop>=0 && phi_righttop<=0)		//15
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_left, y_left, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
-		}
-		else if(phi_leftbottom<=0 && phi_rightbottom<=0 && phi_lefttop<=0 && phi_righttop>=0)		//16
-		{
-			// (mesh_size * (i-1/2), mesh_size * (j-1)), (mesh_size * (i-1), mesh_size * (j-1/2)), (mesh_size * i, mesh_size * (j-1/2)), (mesh_size * (i-1/2), mesh_size * j)
-			k1 = add_point(tempsurf, point_num, x_top, y_top, 0);
-			if(k1==point_num) point_num++;
-			k2 = add_point(tempsurf, point_num, x_right, y_right, 0);
-			if(k2==point_num) point_num++;
-			tempsurf->edge[edge_num][0] = k1;
-			tempsurf->edge[edge_num][1] = k2;
-			edge_num++;
+			double *K1 = convection_normal_point(current, x, y, z, r);
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			K1[2] *= time_step;
+
+			double x_temp = x;
+			double y_temp = y;
+			double z_temp = z;
+
+			x = x + K1[0];
+			y = y + K1[1];
+			z = z + K1[2];
+
+			delete K1;
+
+			K1 = convection_normal_point(current, x, y, z, r);
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			K1[2] *= time_step;
+			
+			x = 3./4.*x_temp + 1./4.*x + 1./4.*K1[0];
+			y = 3./4.*y_temp + 1./4.*y + 1./4.*K1[1];
+			z = 3./4.*z_temp + 1./4.*z + 1./4.*K1[2];
+
+			delete K1;
+
+			K1 = convection_normal_point(current, x, y, z, r);
+			K1[0] *= time_step;
+			K1[1] *= time_step;
+			K1[2] *= time_step;
+			
+			fluid_surface_points[0][i] = 1./3.*x_temp + 2./3.*x + 2./3.*K1[0];
+			fluid_surface_points[1][i] = 1./3.*y_temp + 2./3.*y + 2./3.*K1[1];
+			fluid_surface_points[2][i] = 1./3.*z_temp + 2./3.*z + 2./3.*K1[2];
 		}
 	}
 }

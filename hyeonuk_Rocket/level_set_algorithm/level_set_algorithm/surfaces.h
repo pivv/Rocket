@@ -9,13 +9,12 @@ struct surface
 	int ** edge;		// edge[edge_num][2]
 	int surf_num;
 	int ** surf;		// surf[surf_num][3]
-	double * burning_rate;	// burning_rate[point_num]  in case 1
-	surface(int dim, int pointnum, int edgesurfnum, bool burning);
+	surface(int dim, int pointnum, int edgesurfnum);
 	~surface();
 };
 
 
-surface::surface(int dim, int pointnum, int edgesurfnum, bool burning)
+surface::surface(int dim, int pointnum, int edgesurfnum)
 {
 	int i;
 	dimension = dim;
@@ -35,9 +34,6 @@ surface::surface(int dim, int pointnum, int edgesurfnum, bool burning)
 		surf = new int *[surf_num];
 		for(i=0; i<surf_num; i++) surf[i] = new int[3];
 	}
-
-	if(burning==true) burning_rate = new double [point_num];
-	else burning_rate = NULL;
 }
 
 surface::~surface()
@@ -66,8 +62,6 @@ surface::~surface()
 			delete [] surf;
 		}
 	}
-
-	if(burning_rate!=NULL) delete [] burning_rate;
 }
 
 double unsigned_distance_face_point(struct surface* surf, int i0, double *v)
@@ -169,6 +163,8 @@ double unsigned_distance_face_point(struct surface* surf, int i0, double *v)
 		else tempdist = distance_face_point(3,v,a1,a3,NULL);
 		
 		delete [] n;
+		delete [] c1;
+		delete [] c2;
 
 		return tempdist;
 	}
@@ -222,8 +218,8 @@ int line_face_intersecting(struct surface *surf, int i0, double *l, double *v)
 		double c1 = vec_inner_product(3,a,c,zerovec,l1);
 		double c2 = vec_inner_product(3,a,c,zerovec,l2);
 
-		delete l1;
-		delete l2;
+		delete [] l1;
+		delete [] l2;
 
 		double d1 = vec_inner_product(3,a,v,zerovec,l);
 		double d2 = vec_inner_product(3,a,b,zerovec,l);
@@ -298,6 +294,20 @@ double line_surface_intersecting(struct surface *surf, double *v)
 	return 0;
 }
 
+double temp_distance_surf_point(double x, double y, double z)
+{
+	if(x>y)
+	{
+		double r = sqrt((x-0.75)*(x-0.75) + (y-0.25)*(y-0.25) + (z-0.5)*(z-0.5));
+		return r - 0.1;
+	}
+	else
+	{
+		double r = sqrt((x-0.25)*(x-0.25) + (y-0.75)*(y-0.75) + (z-0.5)*(z-0.5));
+		return r - 0.1;
+	}
+}
+
 double distance_surf_point(struct surface* surf, double x, double y, double z)
 {
 	int i;
@@ -318,6 +328,7 @@ double distance_surf_point(struct surface* surf, double x, double y, double z)
 	}
 	if (surf->dimension==3) // outer-pointing orientation
 	{
+		//return temp_distance_surf_point(x,y,z);
 		double vec[3] = {x,y,z};
 		for(i=0; i<surf->surf_num; i++)
 		{
@@ -330,39 +341,6 @@ double distance_surf_point(struct surface* surf, double x, double y, double z)
 	}
 
 	return 0;
-}
-
-
-int* find_surface_containing_point(struct surface* surf, int i0)
-{
-	int i;
-
-	if(surf->dimension == 2)
-	{
-		int *r = new int[2];
-		for(i=0; i<surf->edge_num; i++)
-		{
-			if(surf->edge[i][0] == i0) r[1] = i;
-			else if(surf->edge[i][1] == i0) r[0] = i;
-		}
-		return r;
-	}
-	if(surf->dimension == 3)
-	{
-
-		int *r = new int[surf->surf_num + 1];
-		for(i=0; i<surf->surf_num; i++) r[i] = -1;
-
-		int num = 0;
-		for(i=0; i<surf->surf_num; i++)
-		{
-			if(surf->surf[i][0] == i0 || surf->surf[i][1] == i0 || surf->surf[i][2] == i0) r[num++] = i;
-		}
-
-		return r;
-	}
-
-	return NULL;
 }
 
 int add_point(struct surface* surf, int point_num, double x, double y, double z)
@@ -397,6 +375,70 @@ int add_point(struct surface* surf, int point_num, double x, double y, double z)
 	}
 
 	return i;
+}
+
+int* find_surface_containing_point(struct surface* surf, int i0)
+{
+	int i;
+
+	if(surf->dimension == 2)
+	{
+		int *r = new int[2];
+		for(i=0; i<surf->edge_num; i++)
+		{
+			if(surf->edge[i][0] == i0) r[1] = i;
+			else if(surf->edge[i][1] == i0) r[0] = i;
+		}
+		return r;
+	}
+	if(surf->dimension == 3)
+	{
+
+		int *r = new int[surf->surf_num + 1];
+		for(i=0; i<surf->surf_num; i++) r[i] = -1;
+
+		int num = 0;
+		for(i=0; i<surf->surf_num; i++)
+		{
+			if(surf->surf[i][0] == i0 || surf->surf[i][1] == i0 || surf->surf[i][2] == i0) r[num++] = i;
+		}
+
+		return r;
+	}
+
+	return NULL;
+}
+
+int* find_surface_containing_point(int dimension, int face_num, int **faces, int i0, int type)
+{
+	int i;
+
+	if(dimension == 2)
+	{
+		int *r = new int[2];
+		for(i=0; i<face_num; i++)
+		{
+			if(faces[0][i] == i0) r[1] = i;
+			else if(faces[1][i] == i0) r[0] = i;
+		}
+		return r;
+	}
+	if(dimension == 3)
+	{
+		int *r = new int[face_num + 1];
+		for(i=0; i<face_num; i++) r[i] = -1;
+
+		int num = 0;
+		for(i=0; i<face_num; i++)
+		{
+			if(faces[0][i] == i0 || faces[1][i] == i0 || faces[2][i] == i0) r[num++] = i;
+			if(type==1 && faces[3][i] == i0) r[num++] = i;
+		}
+
+		return r;
+	}
+
+	return NULL;
 }
 
 
